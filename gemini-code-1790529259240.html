@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Сканер Таврия В</title>
+  <!-- Telegram Web App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- ZXing Сканер Штрихкодов -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    body { background: #0f172a; color: #fff; font-family: -apple-system, sans-serif; padding: 16px; margin: 0; text-align: center; }
+    h2 { color: #60a5fa; margin-bottom: 12px; }
+    video { width: 100%; max-width: 400px; height: 230px; object-fit: cover; border-radius: 12px; border: 2px solid #3b82f6; background: #000; }
+    .box { background: #1e293b; padding: 14px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 16px; margin-top: 6px; box-sizing: border-box; }
+    .btn { width: 100%; padding: 14px; background: #10b981; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 12px; cursor: pointer; }
+    .btn-cam { background: #8b5cf6; margin-bottom: 10px; }
+    .chip { display: inline-block; padding: 8px 12px; background: #334155; border-radius: 6px; font-size: 13px; margin: 4px; cursor: pointer; }
+    .chip.active { background: #3b82f6; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <h2>📸 Сканер Уценки Таврия В</h2>
+
+  <!-- Окно Live-камеры -->
+  <video id="video"></video>
+  
+  <div class="box">
+    <label style="font-size:12px; color:#94a3b8;">Или сделайте фото штрихкода (iOS):</label>
+    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="scanFromFile(this)">
+    <button class="btn btn-cam" onclick="document.getElementById('file-input').click()">📷 Фото через камеру iPhone</button>
+
+    <label style="font-size:12px; color:#94a3b8; display:block; margin-top:8px;">Штрихкод:</label>
+    <input type="number" id="barcode" placeholder="Наведите камеру или введите">
+
+    <label style="font-size:12px; color:#94a3b8; display:block; margin-top:12px;">Годен до / Уценка:</label>
+    <input type="date" id="exp-date">
+
+    <div style="margin-top:8px;">
+      <span class="chip" onclick="setDate(0)">Сегодня</span>
+      <span class="chip" onclick="setDate(3)">+3 дня</span>
+      <span class="chip" onclick="setDate(7)">+7 дней</span>
+      <span class="chip" onclick="setDate(20)">+20 дней</span>
+    </div>
+
+    <button class="btn" onclick="sendToBot()">✅ Отправить в бот</button>
+  </div>
+
+<script>
+  const tg = window.Telegram.WebApp;
+  tg.expand(); // Разворачивает окно на весь экран
+
+  let codeReader = new ZXing.BrowserMultiFormatReader();
+
+  // Запуск камеры
+  async function startCamera() {
+    try {
+      const videoDevices = await codeReader.listVideoInputDevices();
+      const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('задняя')) || videoDevices[0];
+      
+      codeReader.decodeFromVideoDevice(backCamera.deviceId, 'video', (result, err) => {
+        if (result) {
+          document.getElementById('barcode').value = result.text;
+          if (navigator.vibrate) navigator.vibrate(100);
+        }
+      });
+    } catch (e) {
+      console.log('Камера в реальном времени недоступна, используйте фото');
+    }
+  }
+
+  // Сканирование с фото
+  async function scanFromFile(input) {
+    if (!input.files || !input.files[0]) return;
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(input.files[0]);
+    img.onload = async () => {
+      try {
+        const result = await codeReader.decodeFromImageElement(img);
+        if (result) {
+          document.getElementById('barcode').value = result.text;
+          if (navigator.vibrate) navigator.vibrate(100);
+        }
+      } catch (e) {
+        alert('Штрихкод не найден, сделайте фото ближе.');
+      }
+    };
+  }
+
+  function setDate(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    document.getElementById('exp-date').value = d.toISOString().slice(0, 10);
+  }
+
+  // Отправка данных назад в Telegram-бот
+  function sendToBot() {
+    const barcode = document.getElementById('barcode').value.trim();
+    const date = document.getElementById('exp-date').value;
+
+    if (!barcode) {
+      alert('Отсканируйте или введите штрихкод!');
+      return;
+    }
+
+    const data = {
+      barcode: barcode,
+      date: date || 'Не указана'
+    };
+
+    // Главный метод Telegram Web App API — передает JSON данные боту и закрывает окно
+    tg.sendData(JSON.stringify(data));
+  }
+
+  // Дефолтная дата — Сегодня
+  setDate(0);
+  startCamera();
+</script>
+</body>
+</html>
